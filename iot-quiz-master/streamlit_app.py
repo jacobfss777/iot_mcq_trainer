@@ -205,14 +205,15 @@ def inject_flask_like_css():
           transition: transform 0.2s ease, box-shadow 0.2s ease !important;
         }
         .stButton > button[kind="primary"] {
-          background-color: var(--iot-accent) !important;
+          background: linear-gradient(180deg, #818cf8 0%, var(--iot-accent) 100%) !important;
           color: #ffffff !important;
           border: none !important;
-          box-shadow: 0 4px 14px rgba(99,102,241,.35);
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35) !important;
+          min-height: 48px !important;
         }
         .stButton > button[kind="primary"]:hover {
-          background-color: var(--iot-accent-hover) !important;
-          border: none !important;
+          box-shadow: 0 6px 22px rgba(99, 102, 241, 0.45) !important;
+          filter: brightness(1.05);
         }
         .stButton > button[kind="secondary"] {
           background-color: var(--iot-card) !important;
@@ -377,23 +378,35 @@ def inject_flask_like_css():
           background-color: #1e293b !important;
         }
 
-        /* Form submit = primary */
+        /* Form submit — separated from options, pill-shaped accent */
+        .stFormSubmitButton {
+          margin-top: 1.5rem !important;
+          padding-top: 0.25rem !important;
+        }
         .stFormSubmitButton > button {
-          background-color: var(--iot-accent) !important;
+          background: linear-gradient(180deg, #818cf8 0%, var(--iot-accent) 100%) !important;
           color: #fff !important;
           border: none !important;
           border-radius: var(--iot-radius) !important;
           font-weight: 600 !important;
-          margin-top: 0.5rem;
+          font-size: 1rem !important;
+          padding: 0.85rem 1.75rem !important;
+          min-height: 48px !important;
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35) !important;
+          transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+        }
+        .stFormSubmitButton > button:hover {
+          box-shadow: 0 6px 22px rgba(99, 102, 241, 0.45) !important;
         }
 
-        /* Feedback panel */
+        /* Feedback panel — space before Next Question button */
         .feedback-inner {
           border-radius: var(--iot-radius);
           padding: 1.25rem 1.5rem;
           border-left: 4px solid var(--iot-green);
           background: var(--iot-green-bg);
           margin-top: 1rem;
+          margin-bottom: 1.25rem !important;
         }
         .feedback-inner.incorrect {
           border-left-color: var(--iot-red);
@@ -500,20 +513,10 @@ def inject_flask_like_css():
           .score-circle .pct { font-size: 2.25rem; }
         }
 
-        /* MCQ 2-column tiles: stable height, centered wrapped text */
-        section.main div[data-testid="column"] .stButton > button {
-          min-height: 100px !important;
-          max-height: 140px !important;
-          white-space: normal !important;
-          overflow-wrap: anywhere !important;
-          word-break: break-word !important;
-          line-height: 1.35 !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          text-align: center !important;
-          padding: 0.85rem 1rem !important;
-          box-sizing: border-box !important;
+        .iot-spacer-after-feedback {
+          display: block;
+          min-height: 1.25rem;
+          margin-bottom: 0.35rem;
         }
         </style>
         """,
@@ -552,10 +555,6 @@ def badge_for_type(qtype):
         "text-input": "Text Input",
         "matching": "Matching",
     }.get(qtype, qtype)
-
-
-def mcq_session_key(idx, qid):
-    return f"mcq_sel_{idx}_{qid}"
 
 
 def finalize_answer(q, mcq_pick, multi_pick, text_val, match_picks):
@@ -703,82 +702,57 @@ def main():
         st.caption(q.get("topic", ""))
 
         if not st.session_state.show_answer:
-            # MCQ: 2-column tile grid, no default selection (st.radio always pre-selects).
-            # Regular st.button cannot be used inside st.form.
-            if q["type"] == "mcq":
-                sk = mcq_session_key(idx, q["id"])
-                opts = q["options"]
-                sel_i = st.session_state.get(sk)
+            with st.form(key=f"quiz_form_{idx}_{q['id']}"):
+                mcq_pick = multi_pick = text_val = None
+                match_picks = {}
 
-                st.caption("Tap an option to select it, then press Submit Answer.")
-                cols_per_row = 2
-                for row_start in range(0, len(opts), cols_per_row):
-                    col_pair = st.columns(cols_per_row)
-                    for j in range(cols_per_row):
-                        opt_i = row_start + j
-                        with col_pair[j]:
-                            if opt_i < len(opts):
-                                label = opts[opt_i]
-                                chosen = sel_i is not None and sel_i == opt_i
-                                if st.button(
-                                    label,
-                                    key=f"mcqb_{idx}_{q['id']}_{opt_i}",
-                                    use_container_width=True,
-                                    type="primary" if chosen else "secondary",
-                                ):
-                                    st.session_state[sk] = opt_i
-                                    st.rerun()
-                            else:
-                                st.empty()
+                if q["type"] == "mcq":
+                    mcq_pick = st.radio(
+                        "options",
+                        q["options"],
+                        label_visibility="collapsed",
+                        key=f"mcq_{idx}",
+                    )
+                elif q["type"] == "multi-select":
+                    multi_pick = []
+                    for i, opt in enumerate(q["options"]):
+                        if st.checkbox(opt, key=f"ms_{idx}_{i}"):
+                            multi_pick.append(i)
+                elif q["type"] == "text-input":
+                    text_val = st.text_input(
+                        "Your answer",
+                        placeholder="Type your answer…",
+                        label_visibility="collapsed",
+                        key=f"tx_{idx}",
+                    )
+                elif q["type"] == "matching":
+                    if q.get("descriptions"):
+                        desc_html = "<div class='matching-descriptions'>" + "<br>".join(
+                            esc(d) for d in q["descriptions"]
+                        ) + "</div>"
+                        st.markdown(desc_html, unsafe_allow_html=True)
+                    for mi, item in enumerate(q.get("items", [])):
+                        opts = q.get("options", [])
+                        val = st.selectbox(item, ["—"] + opts, key=f"mt_{idx}_{mi}")
+                        if val != "—":
+                            match_picks[item] = val
 
-                if st.button("Submit Answer", type="primary", key=f"mcq_submit_{idx}_{q['id']}"):
-                    if st.session_state.get(sk) is None:
-                        st.warning("Select an option before submitting.")
-                    else:
-                        finalize_answer(q, opts[st.session_state[sk]], None, None, {})
+                submitted = st.form_submit_button(
+                    "Submit Answer",
+                    use_container_width=True,
+                )
 
-            else:
-                with st.form(key=f"quiz_form_{idx}_{q['id']}"):
-                    multi_pick = text_val = None
-                    match_picks = {}
-
-                    if q["type"] == "multi-select":
-                        multi_pick = []
-                        for i, opt in enumerate(q["options"]):
-                            if st.checkbox(opt, key=f"ms_{idx}_{i}"):
-                                multi_pick.append(i)
-                    elif q["type"] == "text-input":
-                        text_val = st.text_input(
-                            "Your answer",
-                            placeholder="Type your answer…",
-                            label_visibility="collapsed",
-                            key=f"tx_{idx}",
-                        )
-                    elif q["type"] == "matching":
-                        if q.get("descriptions"):
-                            desc_html = "<div class='matching-descriptions'>" + "<br>".join(
-                                esc(d) for d in q["descriptions"]
-                            ) + "</div>"
-                            st.markdown(desc_html, unsafe_allow_html=True)
-                        for mi, item in enumerate(q.get("items", [])):
-                            opts = q.get("options", [])
-                            val = st.selectbox(item, ["—"] + opts, key=f"mt_{idx}_{mi}")
-                            if val != "—":
-                                match_picks[item] = val
-
-                    submitted = st.form_submit_button("Submit Answer")
-
-                if submitted:
-                    if q["type"] == "multi-select" and not multi_pick:
-                        st.warning("Select at least one option.")
-                        st.stop()
-                    if q["type"] == "text-input" and not (text_val or "").strip():
-                        st.warning("Enter an answer.")
-                        st.stop()
-                    if q["type"] == "matching" and len(match_picks) != len(q.get("items", [])):
-                        st.warning("Match every item before submitting.")
-                        st.stop()
-                    finalize_answer(q, None, multi_pick, text_val, match_picks)
+            if submitted:
+                if q["type"] == "multi-select" and not multi_pick:
+                    st.warning("Select at least one option.")
+                    st.stop()
+                if q["type"] == "text-input" and not (text_val or "").strip():
+                    st.warning("Enter an answer.")
+                    st.stop()
+                if q["type"] == "matching" and len(match_picks) != len(q.get("items", [])):
+                    st.warning("Match every item before submitting.")
+                    st.stop()
+                finalize_answer(q, mcq_pick, multi_pick, text_val, match_picks)
         else:
             ans = q.get("answer")
             correct_line = ""
@@ -808,8 +782,12 @@ def main():
                 """,
                 unsafe_allow_html=True,
             )
+            st.markdown(
+                '<div class="iot-spacer-after-feedback" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
 
-            if st.button("Next Question →", type="primary"):
+            if st.button("Next Question →", type="primary", use_container_width=True):
                 st.session_state.q_idx += 1
                 st.session_state.show_answer = False
                 st.rerun()
