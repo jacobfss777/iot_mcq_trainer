@@ -1,0 +1,4 @@
+I am studying for the my Internet of things MCQ quiz, inside the PDF are the questions with the correct answers of the questions that will be included in test which comprises of 11 topics. I would like to build a simple app that will run these questions which include MCQ, multi-select, typing input and drop down option question types. I would like this app to run these questions separated by topics and also have a final mock quiz mode with all the questions collated. I would like it when we answer a question it displays the correct answer an explanation of the answer to also help understand the topics better. to build the app can you do this:
+
+1. From the PDF questions collate the questions and answers into a json file (images in the json file, 1 image = 1 question)
+2. 
