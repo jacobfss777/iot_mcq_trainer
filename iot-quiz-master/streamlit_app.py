@@ -145,6 +145,8 @@ def inject_flask_like_css():
 
         .stApp {
           background-color: var(--iot-bg) !important;
+          color: #f1f5f9 !important;
+          color-scheme: dark;
         }
 
         #MainMenu { visibility: hidden; }
@@ -288,31 +290,54 @@ def inject_flask_like_css():
           transition: width 0.4s ease;
         }
 
-        /* Radio / checkbox area — card-like options */
-        div[data-testid="stVerticalBlock"] div[data-testid="stRadio"] label,
+        /* Radio — card-like options + high-contrast text (Streamlit nests text in p/span) */
         div[data-testid="stRadio"] label {
-          background-color: var(--iot-card) !important;
-          border: 2px solid #334155 !important;
+          background-color: #273548 !important;
+          border: 2px solid #475569 !important;
           border-radius: var(--iot-radius) !important;
           padding: 0.85rem 1rem !important;
           margin-bottom: 0.5rem !important;
+          color: #f8fafc !important;
         }
         div[data-testid="stRadio"] label:hover {
-          border-color: #475569 !important;
+          border-color: #64748b !important;
+          background-color: #2d3d52 !important;
         }
-        div[data-testid="stRadio"] label[data-baseweb="radio"] span {
-          color: var(--iot-text) !important;
+        div[data-testid="stRadio"] label p,
+        div[data-testid="stRadio"] label span,
+        div[data-testid="stRadio"] label div,
+        div[data-testid="stRadio"] p,
+        div[data-testid="stRadio"] span,
+        div[data-testid="stRadio"] [data-baseweb="radio"] label,
+        div[data-testid="stRadio"] [data-baseweb="radio"] label p,
+        div[data-testid="stRadio"] [data-baseweb="radio"] label span,
+        div[data-testid="stRadio"] [role="radiogroup"] label,
+        div[data-testid="stRadio"] [role="radiogroup"] label * {
+          color: #f8fafc !important;
+          -webkit-text-fill-color: #f8fafc !important;
+        }
+        /* Radio row text in newer Streamlit (markdown-style options) */
+        div[data-testid="stRadio"] .stMarkdown,
+        div[data-testid="stRadio"] .stMarkdown p,
+        div[data-testid="stRadio"] .stMarkdown span {
+          color: #f8fafc !important;
+          -webkit-text-fill-color: #f8fafc !important;
         }
 
         div[data-testid="stCheckbox"] {
-          background-color: var(--iot-card);
-          border: 2px solid #334155;
+          background-color: #273548 !important;
+          border: 2px solid #475569 !important;
           border-radius: var(--iot-radius);
           padding: 0.65rem 1rem;
           margin-bottom: 0.45rem;
         }
-        div[data-testid="stCheckbox"] label span {
-          color: var(--iot-text) !important;
+        div[data-testid="stCheckbox"] label,
+        div[data-testid="stCheckbox"] label span,
+        div[data-testid="stCheckbox"] label p,
+        div[data-testid="stCheckbox"] span,
+        div[data-testid="stCheckbox"] p {
+          color: #f8fafc !important;
+          -webkit-text-fill-color: #f8fafc !important;
         }
 
         /* Text input */
@@ -328,12 +353,28 @@ def inject_flask_like_css():
           box-shadow: 0 0 0 1px var(--iot-accent) !important;
         }
 
-        /* Select boxes (matching) */
+        /* Select boxes (matching) — visible value + label */
+        .stSelectbox label,
+        .stSelectbox label p,
+        .stSelectbox label span {
+          color: #e2e8f0 !important;
+        }
         .stSelectbox > div > div {
-          background-color: #1a2332 !important;
+          background-color: #273548 !important;
           border: 2px solid #475569 !important;
           border-radius: 8px !important;
-          color: var(--iot-text) !important;
+          color: #f8fafc !important;
+        }
+        .stSelectbox [data-baseweb="select"] span,
+        .stSelectbox [data-baseweb="select"] div[aria-selected],
+        div[data-baseweb="popover"] li,
+        div[data-baseweb="popover"] li span,
+        ul[role="listbox"] li,
+        ul[role="listbox"] li span {
+          color: #f8fafc !important;
+        }
+        div[data-baseweb="popover"] {
+          background-color: #1e293b !important;
         }
 
         /* Form submit = primary */
@@ -366,9 +407,19 @@ def inject_flask_like_css():
         .feedback-title.correct { color: var(--iot-green) !important; }
         .feedback-title.incorrect { color: var(--iot-red) !important; }
         .feedback-text {
-          font-size: 0.9rem;
-          color: var(--iot-muted);
+          font-size: 0.95rem;
+          color: #cbd5e1 !important;
           line-height: 1.55;
+        }
+        .feedback-text strong {
+          color: #f1f5f9 !important;
+        }
+
+        /* Form body default text */
+        form[data-testid="stForm"] p,
+        form[data-testid="stForm"] span,
+        form[data-testid="stForm"] label {
+          color: #e2e8f0 !important;
         }
 
         /* Matching descriptions box */
