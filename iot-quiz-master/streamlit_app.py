@@ -499,6 +499,22 @@ def inject_flask_like_css():
           .score-circle { width: 140px; height: 140px; }
           .score-circle .pct { font-size: 2.25rem; }
         }
+
+        /* MCQ 2-column tiles: stable height, centered wrapped text */
+        section.main div[data-testid="column"] .stButton > button {
+          min-height: 100px !important;
+          max-height: 140px !important;
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+          word-break: break-word !important;
+          line-height: 1.35 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          text-align: center !important;
+          padding: 0.85rem 1rem !important;
+          box-sizing: border-box !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -536,6 +552,37 @@ def badge_for_type(qtype):
         "text-input": "Text Input",
         "matching": "Matching",
     }.get(qtype, qtype)
+
+
+def mcq_session_key(idx, qid):
+    return f"mcq_sel_{idx}_{qid}"
+
+
+def finalize_answer(q, mcq_pick, multi_pick, text_val, match_picks):
+    if q["type"] == "mcq":
+        ok = check_answer(q, mcq_pick, None, None, {})
+    elif q["type"] == "multi-select":
+        ok = check_answer(q, None, multi_pick, None, {})
+    elif q["type"] == "text-input":
+        ok = check_answer(q, None, None, text_val, {})
+    else:
+        ok = check_answer(q, None, None, None, match_picks)
+
+    st.session_state.last_correct = ok
+    st.session_state.show_answer = True
+    if ok:
+        st.session_state.score += 1
+    else:
+        ya, ca = mistake_record(q, mcq_pick, multi_pick, text_val, match_picks)
+        st.session_state.mistakes.append(
+            {
+                "question": q["question"],
+                "your": ya,
+                "correct": ca,
+                "explanation": q.get("explanation") or "",
+            }
+        )
+    st.rerun()
 
 
 def main():
@@ -656,77 +703,82 @@ def main():
         st.caption(q.get("topic", ""))
 
         if not st.session_state.show_answer:
-            with st.form(key=f"quiz_form_{idx}_{q['id']}"):
-                mcq_pick = multi_pick = text_val = None
-                match_picks = {}
+            # MCQ: 2-column tile grid, no default selection (st.radio always pre-selects).
+            # Regular st.button cannot be used inside st.form.
+            if q["type"] == "mcq":
+                sk = mcq_session_key(idx, q["id"])
+                opts = q["options"]
+                sel_i = st.session_state.get(sk)
 
-                if q["type"] == "mcq":
-                    mcq_pick = st.radio(
-                        "options",
-                        q["options"],
-                        label_visibility="collapsed",
-                        key=f"mcq_{idx}",
-                    )
-                elif q["type"] == "multi-select":
-                    multi_pick = []
-                    for i, opt in enumerate(q["options"]):
-                        if st.checkbox(opt, key=f"ms_{idx}_{i}"):
-                            multi_pick.append(i)
-                elif q["type"] == "text-input":
-                    text_val = st.text_input(
-                        "Your answer",
-                        placeholder="Type your answer…",
-                        label_visibility="collapsed",
-                        key=f"tx_{idx}",
-                    )
-                elif q["type"] == "matching":
-                    if q.get("descriptions"):
-                        desc_html = "<div class='matching-descriptions'>" + "<br>".join(
-                            esc(d) for d in q["descriptions"]
-                        ) + "</div>"
-                        st.markdown(desc_html, unsafe_allow_html=True)
-                    for mi, item in enumerate(q.get("items", [])):
-                        opts = q.get("options", [])
-                        val = st.selectbox(item, ["—"] + opts, key=f"mt_{idx}_{mi}")
-                        if val != "—":
-                            match_picks[item] = val
+                st.caption("Tap an option to select it, then press Submit Answer.")
+                cols_per_row = 2
+                for row_start in range(0, len(opts), cols_per_row):
+                    col_pair = st.columns(cols_per_row)
+                    for j in range(cols_per_row):
+                        opt_i = row_start + j
+                        with col_pair[j]:
+                            if opt_i < len(opts):
+                                label = opts[opt_i]
+                                chosen = sel_i is not None and sel_i == opt_i
+                                if st.button(
+                                    label,
+                                    key=f"mcqb_{idx}_{q['id']}_{opt_i}",
+                                    use_container_width=True,
+                                    type="primary" if chosen else "secondary",
+                                ):
+                                    st.session_state[sk] = opt_i
+                                    st.rerun()
+                            else:
+                                st.empty()
 
-                submitted = st.form_submit_button("Submit Answer")
+                if st.button("Submit Answer", type="primary", key=f"mcq_submit_{idx}_{q['id']}"):
+                    if st.session_state.get(sk) is None:
+                        st.warning("Select an option before submitting.")
+                    else:
+                        finalize_answer(q, opts[st.session_state[sk]], None, None, {})
 
-            if submitted:
-                if q["type"] == "multi-select" and not multi_pick:
-                    st.warning("Select at least one option.")
-                    st.stop()
-                if q["type"] == "text-input" and not (text_val or "").strip():
-                    st.warning("Enter an answer.")
-                    st.stop()
-                if q["type"] == "matching" and len(match_picks) != len(q.get("items", [])):
-                    st.warning("Match every item before submitting.")
-                    st.stop()
-                if q["type"] == "mcq":
-                    ok = check_answer(q, mcq_pick, None, None, {})
-                elif q["type"] == "multi-select":
-                    ok = check_answer(q, None, multi_pick, None, {})
-                elif q["type"] == "text-input":
-                    ok = check_answer(q, None, None, text_val, {})
-                else:
-                    ok = check_answer(q, None, None, None, match_picks)
+            else:
+                with st.form(key=f"quiz_form_{idx}_{q['id']}"):
+                    multi_pick = text_val = None
+                    match_picks = {}
 
-                st.session_state.last_correct = ok
-                st.session_state.show_answer = True
-                if ok:
-                    st.session_state.score += 1
-                else:
-                    ya, ca = mistake_record(q, mcq_pick, multi_pick, text_val, match_picks)
-                    st.session_state.mistakes.append(
-                        {
-                            "question": q["question"],
-                            "your": ya,
-                            "correct": ca,
-                            "explanation": q.get("explanation") or "",
-                        }
-                    )
-                st.rerun()
+                    if q["type"] == "multi-select":
+                        multi_pick = []
+                        for i, opt in enumerate(q["options"]):
+                            if st.checkbox(opt, key=f"ms_{idx}_{i}"):
+                                multi_pick.append(i)
+                    elif q["type"] == "text-input":
+                        text_val = st.text_input(
+                            "Your answer",
+                            placeholder="Type your answer…",
+                            label_visibility="collapsed",
+                            key=f"tx_{idx}",
+                        )
+                    elif q["type"] == "matching":
+                        if q.get("descriptions"):
+                            desc_html = "<div class='matching-descriptions'>" + "<br>".join(
+                                esc(d) for d in q["descriptions"]
+                            ) + "</div>"
+                            st.markdown(desc_html, unsafe_allow_html=True)
+                        for mi, item in enumerate(q.get("items", [])):
+                            opts = q.get("options", [])
+                            val = st.selectbox(item, ["—"] + opts, key=f"mt_{idx}_{mi}")
+                            if val != "—":
+                                match_picks[item] = val
+
+                    submitted = st.form_submit_button("Submit Answer")
+
+                if submitted:
+                    if q["type"] == "multi-select" and not multi_pick:
+                        st.warning("Select at least one option.")
+                        st.stop()
+                    if q["type"] == "text-input" and not (text_val or "").strip():
+                        st.warning("Enter an answer.")
+                        st.stop()
+                    if q["type"] == "matching" and len(match_picks) != len(q.get("items", [])):
+                        st.warning("Match every item before submitting.")
+                        st.stop()
+                    finalize_answer(q, None, multi_pick, text_val, match_picks)
         else:
             ans = q.get("answer")
             correct_line = ""
